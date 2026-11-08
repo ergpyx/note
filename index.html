@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daftar Game</title>
+<style>
+:root{
+  --bg:#f6f7f9; --card:#fff; --ink:#18202b; --muted:#7a8494; --line:#e4e7ec;
+  --accent:#4f46e5; --accent2:#7c3aed; --danger:#e5484d;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0f1218;--card:#181d26;--ink:#eef1f6;--muted:#8b95a5;--line:#262d39;--accent:#6d7bff;--accent2:#a78bfa;--danger:#ff7b80}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:640px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:1.6rem;margin:0 0 20px;font-weight:700}
+
+.form{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:10px;grid-template-columns:1fr 1fr}
+.form .nama{grid-column:1/-1}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px;width:100%;min-width:0}
+input::placeholder{color:var(--muted)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+label{display:block;font-size:.78rem;color:var(--muted);margin:0 0 3px 2px}
+
+.btn{grid-column:1/-1;display:flex;gap:8px}
+.add{flex:1;border:0;border-radius:10px;padding:12px 18px;font:inherit;font-weight:600;color:#fff;cursor:pointer;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 4px 14px rgba(79,70,229,.3);
+  transition:transform .12s,box-shadow .12s}
+.add:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(79,70,229,.4)}
+.add:active{transform:translateY(0)}
+.cancel{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:10px;padding:12px 16px;font:inherit;cursor:pointer}
+
+.tools{display:flex;gap:10px;margin:20px 0 10px}
+.tools input{flex:1}
+.tools select{width:auto}
+
+.list{margin:0;padding:0;list-style:none;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:.92rem}
+.item:last-child{border-bottom:0}
+.item:hover{background:var(--bg)}
+.name{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ver,.date{color:var(--muted);font-size:.82rem;white-space:nowrap}
+.ver{min-width:38px;text-align:right}
+.icon{display:inline-flex;border:0;background:transparent;color:var(--muted);cursor:pointer;padding:5px;border-radius:7px}
+.icon svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.icon:hover{background:var(--line);color:var(--ink)}
+.icon.del:hover{color:var(--danger)}
+.empty{text-align:center;color:var(--muted);padding:24px 0}
+mark{background:#ffe27a;color:#222;border-radius:3px}
+@media (max-width:420px){.form{grid-template-columns:1fr}.date{font-size:.75rem}.item{gap:6px;padding:8px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Daftar Game</h1>
+
+  <div class="form">
+    <div class="nama">
+      <input id="nama" placeholder="Nama game" autocomplete="off" aria-label="Nama game">
+    </div>
+    <div>
+      <label for="versi">Versi</label>
+      <input id="versi" placeholder="mis. 1.0.3">
+    </div>
+    <div>
+      <label for="tgl">Terakhir dimainkan</label>
+      <input id="tgl" type="date">
+    </div>
+    <div class="btn">
+      <button class="add" id="simpan">Tambah game</button>
+      <button class="cancel" id="batal" hidden>Batal</button>
+    </div>
+  </div>
+
+  <div class="tools">
+    <input id="cari" type="search" placeholder="Cari game..." aria-label="Cari game">
+    <select id="urut" aria-label="Urutkan">
+      <option value="az">A–Z</option>
+      <option value="za">Z–A</option>
+      <option value="baru">Terbaru</option>
+      <option value="lama">Terlama</option>
+    </select>
+  </div>
+
+  <ul class="list" id="daftar"></ul>
+</div>
+
+<script>
+const KEY="daftar_game_v2";
+let data=[], editId=null;
+const $=id=>document.getElementById(id);
+const nama=$("nama"),versi=$("versi"),tgl=$("tgl"),simpan=$("simpan"),batal=$("batal"),cari=$("cari"),urut=$("urut"),daftar=$("daftar");
+
+function load(){try{data=JSON.parse(localStorage.getItem(KEY))||[]}catch(e){data=[]}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){alert("Gagal menyimpan.")}}
+function hariIni(){const d=new Date(),p=n=>String(n).padStart(2,"0");return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())}
+function fmt(s){if(!s)return "-";const[y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d).toLocaleDateString("id-ID",{day:"numeric",month:"short",year:"2-digit"})}
+function esc(s){return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function hl(t,q){const s=esc(t);if(!q)return s;return s.replace(new RegExp("("+esc(q).replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","gi"),"<mark>$1</mark>")}
+
+function render(){
+  const q=cari.value.trim().toLowerCase();
+  const l=data.filter(g=>!q||g.nama.toLowerCase().includes(q)||(g.versi||"").toLowerCase().includes(q));
+  const m=urut.value;
+  l.sort((a,b)=>{
+    if(m==="az")return a.nama.localeCompare(b.nama,"id",{sensitivity:"base"});
+    if(m==="za")return b.nama.localeCompare(a.nama,"id",{sensitivity:"base"});
+    if(m==="baru")return b.tgl.localeCompare(a.tgl);
+    return a.tgl.localeCompare(b.tgl);
+  });
+  if(!l.length){daftar.innerHTML='<li class="empty">'+(data.length?"Tidak ditemukan.":"Belum ada game. Tambahkan di atas.")+'</li>';return}
+  daftar.innerHTML=l.map(g=>`<li class="item">
+    <span class="name" title="${esc(g.nama)}">${hl(g.nama,q)}</span>
+    <span class="ver">${g.versi?"v"+hl(g.versi,q):""}</span>
+    <span class="date">${fmt(g.tgl)}</span>
+    <button class="icon" data-edit="${g.id}" title="Edit" aria-label="Edit"><svg viewBox="0 0 24 24" style="pointer-events:none"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg></button>
+    <button class="icon del" data-del="${g.id}" title="Hapus" aria-label="Hapus"><svg viewBox="0 0 24 24" style="pointer-events:none"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></button>
+  </li>`).join("");
+}
+
+function reset(){editId=null;nama.value="";versi.value="";tgl.value=hariIni();simpan.textContent="Tambah game";batal.hidden=true}
+
+simpan.onclick=()=>{
+  const n=nama.value.trim();
+  if(!n){nama.focus();return}
+  const o={nama:n,versi:versi.value.trim().replace(/^v/i,""),tgl:tgl.value||hariIni()};
+  if(editId!==null){Object.assign(data.find(x=>x.id===editId)||{},o)}
+  else data.push({id:Date.now(),...o});
+  save();reset();render();
+};
+batal.onclick=reset;
+[nama,versi].forEach(i=>i.addEventListener("keydown",e=>{if(e.key==="Enter")simpan.click()}));
+
+daftar.onclick=e=>{
+  const d=e.target.dataset.del,ed=e.target.dataset.edit;
+  if(d){const g=data.find(x=>x.id===+d);if(g&&confirm('Hapus "'+g.nama+'"?')){data=data.filter(x=>x.id!==g.id);if(editId===g.id)reset();save();render()}}
+  if(ed){const g=data.find(x=>x.id===+ed);if(!g)return;editId=g.id;nama.value=g.nama;versi.value=g.versi||"";tgl.value=g.tgl;simpan.textContent="Simpan perubahan";batal.hidden=false;nama.focus();window.scrollTo({top:0,behavior:"smooth"})}
+};
+cari.oninput=render;urut.onchange=render;
+
+load();reset();render();
+</script>
+</body>
+</html>
