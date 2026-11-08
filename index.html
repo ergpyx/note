@@ -15,7 +15,12 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 .wrap{max-width:640px;margin:0 auto;padding:32px 16px 64px}
-h1{font-size:1.6rem;margin:0 0 20px;font-weight:700}
+.head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+h1{font-size:1.6rem;margin:0;font-weight:700}
+.bk{display:flex;gap:6px}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 12px;font:inherit;font-size:.82rem;cursor:pointer}
+.pill:hover{border-color:var(--accent);color:var(--accent)}
+.pill svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 .form{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:10px;grid-template-columns:1fr 1fr}
 .form .nama{grid-column:1/-1}
@@ -23,7 +28,6 @@ input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid
 input::placeholder{color:var(--muted)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 label{display:block;font-size:.78rem;color:var(--muted);margin:0 0 3px 2px}
-
 .btn{grid-column:1/-1;display:flex;gap:8px}
 .add{flex:1;border:0;border-radius:10px;padding:12px 18px;font:inherit;font-weight:600;color:#fff;cursor:pointer;
   background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 4px 14px rgba(79,70,229,.3);
@@ -38,23 +42,40 @@ label{display:block;font-size:.78rem;color:var(--muted);margin:0 0 3px 2px}
 
 .list{margin:0;padding:0;list-style:none;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:.92rem}
-.item:last-child{border-bottom:0}
+.list>li:last-child{border-bottom:0}
 .item:hover{background:var(--bg)}
 .name{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ver,.date{color:var(--muted);font-size:.82rem;white-space:nowrap}
-.ver{min-width:38px;text-align:right}
+button.ver{border:0;background:transparent;font:inherit;font-size:.82rem;padding:2px 6px;border-radius:6px;cursor:pointer;min-width:38px;text-align:right}
+button.ver.has{color:var(--accent);text-decoration:underline dotted;text-underline-offset:3px}
+button.ver:hover{background:var(--line)}
 .icon{display:inline-flex;border:0;background:transparent;color:var(--muted);cursor:pointer;padding:5px;border-radius:7px}
 .icon svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .icon:hover{background:var(--line);color:var(--ink)}
 .icon.del:hover{color:var(--danger)}
+.hist{list-style:none;margin:0;padding:6px 12px 8px 24px;background:var(--bg);border-bottom:1px solid var(--line);font-size:.82rem;color:var(--muted)}
+.hist div{display:flex;justify-content:space-between;padding:2px 0}
+.hist b{color:var(--ink);font-weight:600}
 .empty{text-align:center;color:var(--muted);padding:24px 0}
 mark{background:#ffe27a;color:#222;border-radius:3px}
-@media (max-width:420px){.form{grid-template-columns:1fr}.date{font-size:.75rem}.item{gap:6px;padding:8px}}
+.note{color:var(--muted);font-size:.78rem;margin-top:14px;text-align:center}
+@media (max-width:420px){.form{grid-template-columns:1fr}.date{font-size:.75rem}.item{gap:6px;padding:8px}.pill span{display:none}}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Daftar Game</h1>
+  <div class="head">
+    <h1>Daftar Game</h1>
+    <div class="bk">
+      <button class="pill" id="ekspor" title="Simpan cadangan ke file">
+        <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg><span>Ekspor</span>
+      </button>
+      <button class="pill" id="impor" title="Muat cadangan dari file">
+        <svg viewBox="0 0 24 24"><path d="M12 15V3"/><path d="M7 8l5-5 5 5"/><path d="M5 21h14"/></svg><span>Impor</span>
+      </button>
+      <input id="file" type="file" accept=".json,application/json" hidden>
+    </div>
+  </div>
 
   <div class="form">
     <div class="nama">
@@ -85,24 +106,38 @@ mark{background:#ffe27a;color:#222;border-radius:3px}
   </div>
 
   <ul class="list" id="daftar"></ul>
+  <p class="note">Klik versi untuk melihat riwayat. Ekspor cadangan sebelum mengganti kode.</p>
 </div>
 
 <script>
-const KEY="daftar_game_v2";
+const KEY="daftar_game_v2";   // jangan diubah supaya data lama tetap terbaca
 let data=[], editId=null;
+const open=new Set();
 const $=id=>document.getElementById(id);
-const nama=$("nama"),versi=$("versi"),tgl=$("tgl"),simpan=$("simpan"),batal=$("batal"),cari=$("cari"),urut=$("urut"),daftar=$("daftar");
+const nama=$("nama"),versi=$("versi"),tgl=$("tgl"),simpan=$("simpan"),batal=$("batal"),cari=$("cari"),urut=$("urut"),daftar=$("daftar"),file=$("file");
 
-function load(){try{data=JSON.parse(localStorage.getItem(KEY))||[]}catch(e){data=[]}}
+/* data lama tanpa riwayat tetap aman: riwayat dibuat otomatis */
+function normalize(arr){
+  return (Array.isArray(arr)?arr:[]).filter(g=>g&&typeof g.nama==="string").map(g=>{
+    const o={id:Number(g.id)||Date.now()+Math.random(),nama:g.nama,versi:g.versi||"",tgl:g.tgl||""};
+    o.history=Array.isArray(g.history)?g.history.filter(h=>h&&h.versi).map(h=>({versi:String(h.versi),tgl:h.tgl||""})):[];
+    if(!o.history.length&&o.versi)o.history=[{versi:o.versi,tgl:o.tgl}];
+    return o;
+  });
+}
+function load(){try{data=normalize(JSON.parse(localStorage.getItem(KEY)))}catch(e){data=[]}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){alert("Gagal menyimpan.")}}
 function hariIni(){const d=new Date(),p=n=>String(n).padStart(2,"0");return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())}
 function fmt(s){if(!s)return "-";const[y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d).toLocaleDateString("id-ID",{day:"numeric",month:"short",year:"2-digit"})}
-function esc(s){return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function hl(t,q){const s=esc(t);if(!q)return s;return s.replace(new RegExp("("+esc(q).replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","gi"),"<mark>$1</mark>")}
+
+const ICO_EDIT='<svg viewBox="0 0 24 24" style="pointer-events:none"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>';
+const ICO_DEL='<svg viewBox="0 0 24 24" style="pointer-events:none"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>';
 
 function render(){
   const q=cari.value.trim().toLowerCase();
-  const l=data.filter(g=>!q||g.nama.toLowerCase().includes(q)||(g.versi||"").toLowerCase().includes(q));
+  const l=data.filter(g=>!q||g.nama.toLowerCase().includes(q)||g.versi.toLowerCase().includes(q));
   const m=urut.value;
   l.sort((a,b)=>{
     if(m==="az")return a.nama.localeCompare(b.nama,"id",{sensitivity:"base"});
@@ -111,13 +146,20 @@ function render(){
     return a.tgl.localeCompare(b.tgl);
   });
   if(!l.length){daftar.innerHTML='<li class="empty">'+(data.length?"Tidak ditemukan.":"Belum ada game. Tambahkan di atas.")+'</li>';return}
-  daftar.innerHTML=l.map(g=>`<li class="item">
-    <span class="name" title="${esc(g.nama)}">${hl(g.nama,q)}</span>
-    <span class="ver">${g.versi?"v"+hl(g.versi,q):""}</span>
-    <span class="date">${fmt(g.tgl)}</span>
-    <button class="icon" data-edit="${g.id}" title="Edit" aria-label="Edit"><svg viewBox="0 0 24 24" style="pointer-events:none"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg></button>
-    <button class="icon del" data-del="${g.id}" title="Hapus" aria-label="Hapus"><svg viewBox="0 0 24 24" style="pointer-events:none"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></button>
-  </li>`).join("");
+  daftar.innerHTML=l.map(g=>{
+    const has=g.history.length>0;
+    let h="";
+    if(open.has(g.id)){
+      h='<li class="hist">'+(has?[...g.history].reverse().map(x=>`<div><b>v${esc(x.versi)}</b><span>${fmt(x.tgl)}</span></div>`).join(""):"<div>Belum ada riwayat versi.</div>")+'</li>';
+    }
+    return `<li class="item">
+      <span class="name" title="${esc(g.nama)}">${hl(g.nama,q)}</span>
+      <button class="ver ${g.history.length>1?"has":""}" data-hist="${g.id}" title="Riwayat versi">${g.versi?"v"+hl(g.versi,q):"–"}</button>
+      <span class="date">${fmt(g.tgl)}</span>
+      <button class="icon" data-edit="${g.id}" title="Edit" aria-label="Edit">${ICO_EDIT}</button>
+      <button class="icon del" data-del="${g.id}" title="Hapus" aria-label="Hapus">${ICO_DEL}</button>
+    </li>${h}`;
+  }).join("");
 }
 
 function reset(){editId=null;nama.value="";versi.value="";tgl.value=hariIni();simpan.textContent="Tambah game";batal.hidden=true}
@@ -125,20 +167,70 @@ function reset(){editId=null;nama.value="";versi.value="";tgl.value=hariIni();si
 simpan.onclick=()=>{
   const n=nama.value.trim();
   if(!n){nama.focus();return}
-  const o={nama:n,versi:versi.value.trim().replace(/^v/i,""),tgl:tgl.value||hariIni()};
-  if(editId!==null){Object.assign(data.find(x=>x.id===editId)||{},o)}
-  else data.push({id:Date.now(),...o});
+  const v=versi.value.trim().replace(/^v/i,""), t=tgl.value||hariIni();
+  if(editId!==null){
+    const g=data.find(x=>x.id===editId);
+    if(g){
+      g.nama=n;g.versi=v;g.tgl=t;
+      const last=g.history[g.history.length-1];
+      if(v&&(!last||last.versi!==v))g.history.push({versi:v,tgl:t});   // versi berubah → catat riwayat
+    }
+  }else{
+    data.push({id:Date.now(),nama:n,versi:v,tgl:t,history:v?[{versi:v,tgl:t}]:[]});
+  }
   save();reset();render();
 };
 batal.onclick=reset;
 [nama,versi].forEach(i=>i.addEventListener("keydown",e=>{if(e.key==="Enter")simpan.click()}));
 
 daftar.onclick=e=>{
-  const d=e.target.dataset.del,ed=e.target.dataset.edit;
-  if(d){const g=data.find(x=>x.id===+d);if(g&&confirm('Hapus "'+g.nama+'"?')){data=data.filter(x=>x.id!==g.id);if(editId===g.id)reset();save();render()}}
-  if(ed){const g=data.find(x=>x.id===+ed);if(!g)return;editId=g.id;nama.value=g.nama;versi.value=g.versi||"";tgl.value=g.tgl;simpan.textContent="Simpan perubahan";batal.hidden=false;nama.focus();window.scrollTo({top:0,behavior:"smooth"})}
+  const b=e.target.closest("button");if(!b)return;
+  const d=b.dataset.del,ed=b.dataset.edit,hi=b.dataset.hist;
+  if(hi){const id=+hi;open.has(id)?open.delete(id):open.add(id);render()}
+  if(d){const g=data.find(x=>x.id===+d);if(g&&confirm('Hapus "'+g.nama+'"?')){data=data.filter(x=>x.id!==g.id);open.delete(g.id);if(editId===g.id)reset();save();render()}}
+  if(ed){const g=data.find(x=>x.id===+ed);if(!g)return;editId=g.id;nama.value=g.nama;versi.value=g.versi;tgl.value=g.tgl;simpan.textContent="Simpan perubahan";batal.hidden=false;nama.focus();window.scrollTo({top:0,behavior:"smooth"})}
 };
 cari.oninput=render;urut.onchange=render;
+
+/* ---------- Ekspor / Impor ---------- */
+$("ekspor").onclick=()=>{
+  if(!data.length){alert("Belum ada data untuk diekspor.");return}
+  const isi=JSON.stringify({app:"daftar-game",format:1,exported:new Date().toISOString(),data},null,2);
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([isi],{type:"application/json"}));
+  a.download="daftar-game-"+hariIni()+".json";
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+};
+$("impor").onclick=()=>file.click();
+file.onchange=()=>{
+  const f=file.files[0];file.value="";if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    let masuk;
+    try{
+      const j=JSON.parse(r.result);
+      masuk=normalize(Array.isArray(j)?j:j.data);
+    }catch(e){alert("File tidak valid. Pilih file cadangan .json dari aplikasi ini.");return}
+    if(!masuk.length){alert("File tidak berisi data game.");return}
+    const gabung=confirm("Ditemukan "+masuk.length+" game.\n\nOK = Gabungkan dengan data sekarang\nBatal = Pilih opsi lain");
+    let mode=null;
+    if(gabung)mode="gabung";
+    else if(confirm("Ganti SEMUA data sekarang dengan isi file ini?\n\nOK = Ganti semua\nBatal = Batalkan impor"))mode="ganti";
+    if(!mode)return;
+    try{localStorage.setItem(KEY+"_backup",JSON.stringify(data))}catch(e){}   // cadangan otomatis sebelum impor
+    if(mode==="ganti")data=masuk;
+    else{
+      masuk.forEach(g=>{
+        const i=data.findIndex(x=>x.id===g.id||x.nama.toLowerCase()===g.nama.toLowerCase());
+        if(i>=0)data[i]={...g,id:data[i].id};else data.push(g);
+      });
+    }
+    save();reset();render();
+    alert("Impor selesai. Total sekarang: "+data.length+" game.");
+  };
+  r.readAsText(f);
+};
 
 load();reset();render();
 </script>
